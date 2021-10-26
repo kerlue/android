@@ -215,7 +215,6 @@ public class DialogFragmentIT extends AbstractIT {
                                                               "",
                                                               -1),
                                                    targetContext));
-        shortSleep();
         screenshot(sut, "dnd");
 
         activity.runOnUiThread(() -> sut.setStatus(new Status(StatusType.ONLINE,
@@ -223,7 +222,6 @@ public class DialogFragmentIT extends AbstractIT {
                                                               "",
                                                               -1),
                                                    targetContext));
-        shortSleep();
         screenshot(sut, "online");
 
         activity.runOnUiThread(() -> sut.setStatus(new Status(StatusType.ONLINE,
@@ -231,15 +229,12 @@ public class DialogFragmentIT extends AbstractIT {
                                                               "🎉",
                                                               -1),
                                                    targetContext));
-        shortSleep();
         screenshot(sut, "fun");
 
         activity.runOnUiThread(() -> sut.setStatus(new Status(StatusType.OFFLINE, "", "", -1), targetContext));
-        shortSleep();
         screenshot(sut, "offline");
 
         activity.runOnUiThread(() -> sut.setStatus(new Status(StatusType.AWAY, "Vacation", "🌴", -1), targetContext));
-        shortSleep();
         screenshot(sut, "away");
     }
 
