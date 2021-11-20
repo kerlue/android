@@ -21,7 +21,6 @@
  */
 package com.owncloud.android;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -71,6 +70,7 @@ import com.owncloud.android.datastorage.StoragePoint;
 import com.owncloud.android.lib.common.OwnCloudClientManagerFactory;
 import com.owncloud.android.lib.common.utils.Log_OC;
 import com.owncloud.android.lib.resources.status.OwnCloudVersion;
+import com.owncloud.android.operations.AutoDeleteAppFileOperation;
 import com.owncloud.android.ui.activity.SyncedFoldersActivity;
 import com.owncloud.android.ui.notifications.NotificationUtils;
 import com.owncloud.android.utils.DisplayUtils;
@@ -174,6 +174,7 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
 
     @SuppressWarnings("unused")
     private boolean mBound;
+    private AutoDeleteAppFileOperation autoDeleteFileOperation;
 
     /**
      * Temporary hack
@@ -261,6 +262,7 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
 
         fixStoragePath();
         passCodeManager = new PassCodeManager(preferences);
+        autoDeleteFileOperation = new AutoDeleteAppFileOperation(accountManager, mContext);
 
         MainApp.storagePath = preferences.getStoragePath(getApplicationContext().getFilesDir().getAbsolutePath());
 
@@ -318,6 +320,7 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
             public void onActivityResumed(@NonNull Activity activity) {
                 Log_OC.d(activity.getClass().getSimpleName(), "onResume() starting");
                 passCodeManager.onActivityStarted(activity);
+                autoDeleteFileOperation.deleteFilesIfDatePast();
             }
 
             @Override

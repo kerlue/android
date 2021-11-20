@@ -24,6 +24,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -36,12 +37,17 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.google.android.material.button.MaterialButton;
+import com.nextcloud.client.account.UserAccountManager;
+import com.nextcloud.client.preferences.PreferencesModule;
 import com.owncloud.android.R;
 import com.owncloud.android.datamodel.MediaFolderType;
 import com.owncloud.android.datamodel.SyncedFolderDisplayItem;
+import com.owncloud.android.files.services.FileUploader;
 import com.owncloud.android.files.services.NameCollisionPolicy;
 import com.owncloud.android.lib.common.utils.Log_OC;
+import com.owncloud.android.operations.AutoDeleteAppFileOperation;
 import com.owncloud.android.ui.activity.FolderPickerActivity;
+import com.owncloud.android.ui.activity.SyncedFoldersActivity;
 import com.owncloud.android.ui.activity.UploadFilesActivity;
 import com.owncloud.android.ui.dialog.parcel.SyncedFolderParcelable;
 import com.owncloud.android.utils.DisplayUtils;
@@ -70,16 +76,18 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
     public static final String SYNCED_FOLDER_PARCELABLE = "SyncedFolderParcelable";
     public static final int REQUEST_CODE__SELECT_REMOTE_FOLDER = 0;
     public static final int REQUEST_CODE__SELECT_LOCAL_FOLDER = 1;
-
+    private static final int DO_NOT_DELETE = 0;
     private final static String TAG = SyncedFolderPreferencesDialogFragment.class.getSimpleName();
     private static final String BEHAVIOUR_DIALOG_STATE = "BEHAVIOUR_DIALOG_STATE";
     private static final String NAME_COLLISION_POLICY_DIALOG_STATE = "NAME_COLLISION_POLICY_DIALOG_STATE";
     private final static float alphaEnabled = 1.0f;
     private final static float alphaDisabled = 0.7f;
 
+
     protected View mView;
     private CharSequence[] mUploadBehaviorItemStrings;
     private CharSequence[] mNameCollisionPolicyItemStrings;
+    private CharSequence[] mRetentionItemStrings;
     private SwitchCompat mEnabledSwitch;
     private AppCompatCheckBox mUploadOnWifiCheckbox;
     private AppCompatCheckBox mUploadOnChargingCheckbox;
@@ -97,6 +105,9 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
     private boolean behaviourDialogShown;
     private boolean nameCollisionPolicyDialogShown;
     private AlertDialog behaviourDialog;
+    private View appFilesRetentionContainer;
+    private TextView appFilesRetentionSummary;
+
 
     public static SyncedFolderPreferencesDialogFragment newInstance(SyncedFolderDisplayItem syncedFolder, int section) {
         if (syncedFolder == null) {
@@ -133,6 +144,7 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         mSyncedFolder = getArguments().getParcelable(SYNCED_FOLDER_PARCELABLE);
         mUploadBehaviorItemStrings = getResources().getTextArray(R.array.pref_behaviour_entries);
         mNameCollisionPolicyItemStrings = getResources().getTextArray(R.array.pref_name_collision_policy_entries);
+        mRetentionItemStrings = getResources().getTextArray(R.array.app_file_retention_entries);
     }
 
     @Override
@@ -205,8 +217,13 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
 
         mNameCollisionPolicySummary = view.findViewById(R.id.setting_instant_name_collision_policy_summary);
 
+        appFilesRetentionContainer = view.findViewById(R.id.setting_instant_upload_files_retention_container);
+
+        appFilesRetentionSummary = view.findViewById(R.id.setting_instant_upload_files_retention_summary);
+
         mCancel = view.findViewById(R.id.cancel);
         mSave = view.findViewById(R.id.save);
+
 
         ThemeButtonUtils.themeBorderlessButton(mCancel, mSave);
 
@@ -243,9 +260,15 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
 
         mUploadBehaviorSummary.setText(mUploadBehaviorItemStrings[mSyncedFolder.getUploadActionInteger()]);
 
+        showHideAutoDeleteOption(mSyncedFolder.getUploadActionInteger());
+        mUploadBehaviorSummary.setText(mUploadBehaviorItemStrings[mSyncedFolder.getUploadActionInteger()]);
+
         final int nameCollisionPolicyIndex =
             getSelectionIndexForNameCollisionPolicy(mSyncedFolder.getNameCollisionPolicy());
         mNameCollisionPolicySummary.setText(mNameCollisionPolicyItemStrings[nameCollisionPolicyIndex]);
+
+        final int fileRetentionIndex = getSelectionIndexForFilesRetention();
+        appFilesRetentionSummary.setText(mRetentionItemStrings[fileRetentionIndex]);
     }
 
     /**
@@ -353,6 +376,8 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         view.findViewById(R.id.setting_instant_name_collision_policy_container).setEnabled(enable);
         view.findViewById(R.id.setting_instant_name_collision_policy_container).setAlpha(alpha);
 
+        view.findViewById(R.id.setting_instant_upload_files_retention_container).setVisibility(View.GONE);
+
         if (enable) {
             ThemeCheckableUtils.tintCheckbox(ThemeColorUtils.primaryAccentColor(getContext()),
                                              mUploadOnWifiCheckbox,
@@ -443,6 +468,14 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
                     }
                 });
 
+        view.findViewById(R.id.setting_instant_upload_files_retention_container).setOnClickListener(
+            new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showAppFilesRetentionDialog();
+                }
+            });
+
         view.findViewById(R.id.setting_instant_name_collision_policy_container).setOnClickListener(
             new OnClickListener() {
                 @Override
@@ -460,11 +493,15 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
                         new
                                 DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
+                                        CharSequence selectedBehavior = SyncedFolderPreferencesDialogFragment
+                                            .this.mUploadBehaviorItemStrings[which];
+
                                         mSyncedFolder.setUploadAction(
                                                 getResources().getTextArray(
                                                         R.array.pref_behaviour_entryValues)[which].toString());
-                                        mUploadBehaviorSummary.setText(SyncedFolderPreferencesDialogFragment
-                                                .this.mUploadBehaviorItemStrings[which]);
+
+                                        mUploadBehaviorSummary.setText(selectedBehavior);
+                                        showHideAutoDeleteOption(which);
                                         behaviourDialogShown = false;
                                         dialog.dismiss();
                                     }
@@ -480,6 +517,16 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         behaviourDialog.show();
     }
 
+    private void showHideAutoDeleteOption(int behavior) {
+        if(behavior == FileUploader.LOCAL_BEHAVIOUR_MOVE){
+            appFilesRetentionContainer.setVisibility(View.VISIBLE);
+        }
+        else{
+            filesRetentionChange(DO_NOT_DELETE);
+            appFilesRetentionContainer.setVisibility(View.GONE);
+        }
+    }
+
     private void showNameCollisionPolicyDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 
@@ -492,6 +539,41 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         nameCollisionPolicyDialogShown = true;
         behaviourDialog = builder.create();
         behaviourDialog.show();
+    }
+
+    private void showAppFilesRetentionDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+
+        builder.setTitle(R.string.pref_instant_name_app_folder_retention_dialogTitle)
+            .setOnCancelListener(dialog -> nameCollisionPolicyDialogShown = false)
+            .setSingleChoiceItems(mRetentionItemStrings, getSelectionIndexForFilesRetention(),
+                                  (dialog, which) -> {
+                                      filesRetentionChange(which);
+                                      dialog.dismiss();
+                                  });
+
+
+        behaviourDialog = builder.create();
+        behaviourDialog.show();
+    }
+
+    private void filesRetentionChange(int which) {
+        String path = mSyncedFolder.getLocalPath();
+        SharedPreferences pref = new PreferencesModule().sharedPreferences(getContext());
+        pref.edit().putInt(path,which).apply();
+        appFilesRetentionSummary.setText(mRetentionItemStrings[which]);
+
+        //Add directory to auto delete operation
+        UserAccountManager user = ((SyncedFoldersActivity) getActivity()).getUserAccountManager();
+        AutoDeleteAppFileOperation autoDeleteOps = new AutoDeleteAppFileOperation(user, getActivity());
+        String dir = mSyncedFolder.getRemotePath() + "/";
+
+        if(which == DO_NOT_DELETE){
+            autoDeleteOps.deleteDirectory(dir).save();
+        }
+        else{
+            autoDeleteOps.addDirectory(dir, getSelectionIndexToDays(which)).save();
+        }
     }
 
     @Override
@@ -557,6 +639,7 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         }
     }
 
+
     private class OnSyncedFolderCancelClickListener implements OnClickListener {
         @Override
         public void onClick(View v) {
@@ -585,6 +668,8 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         }
     }
 
+
+
     /**
      * Get index for name collision selection dialog.
      * @return 0 if ASK_USER, 1 if OVERWRITE, 2 if RENAME, 3 if SKIP, Otherwise: 0
@@ -601,6 +686,30 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
             default:
                 return 0;
         }
+    }
+
+    /**
+     * Get index for name auto delete file selection dialog.
+     * @return 0 never, 1 if 7days, 2 if 14days, 3 30days
+     */
+    static private int getSelectionIndexToDays(int index) {
+        switch (index) {
+            case 1:
+                return 7;
+            case 2:
+                return 14;
+            case 3:
+                return 30;
+            case 4:
+            default:
+                return 0;
+        }
+    }
+
+    private int getSelectionIndexForFilesRetention() {
+        String path = mSyncedFolder.getLocalPath();
+        SharedPreferences pref = new PreferencesModule().sharedPreferences(getContext());
+        return pref.getInt(path, 0);
     }
 
     /**

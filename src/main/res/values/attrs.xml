@@ -29,4 +29,16 @@
         <item>@string/link_share_read_only</item>
         <item>@string/link_share_editing</item>
     </string-array>
+
+    <string-array name="app_file_retention_entries">
+        <item>@string/app_file_retention_entries_do_not_delete</item>
+        <item>@string/app_file_retention_entries_7days</item>
+        <item>@string/app_file_retention_entries_14days</item>
+        <item>@string/app_file_retention_entries_30days</item>
+    </string-array>
+
+    <string name="app_file_retention_entries_7days">7 days</string>
+    <string name="app_file_retention_entries_14days">14 days</string>
+    <string name="app_file_retention_entries_30days">30 days</string>
+    <string name="app_file_retention_entries_do_not_delete">Do not delete</string>
 </resources>

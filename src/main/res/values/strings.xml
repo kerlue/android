@@ -1009,4 +1009,6 @@
     <string name="whats_new_storage_sdk30_content_page2">Please check your auto upload items and verify
     that Nextcloud still has read access to the local folder.\n\nAdditionally, other applications will not be able to
     read Nextcloud\'s downloaded files directly from the external storage.</string>
+    <string name="pref_instant_name_app_folder_retention_title">Days to keep files</string>
+    <string name="pref_instant_name_app_folder_retention_dialogTitle">Auto delete files after</string>
 </resources>
