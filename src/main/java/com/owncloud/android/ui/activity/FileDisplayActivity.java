@@ -52,6 +52,7 @@ import android.view.WindowManager;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.transformation.ExpandableBehavior;
 import com.nextcloud.client.account.User;
 import com.nextcloud.client.appinfo.AppInfo;
 import com.nextcloud.client.di.Injectable;
@@ -1122,7 +1123,12 @@ public class FileDisplayActivity extends FileActivity
             }
         } else if (leftFragment instanceof PreviewTextStringFragment) {
             createMinFragments(null);
-        } else {
+        }else if(leftFragment instanceof PreviewMediaFragment){
+            CoordinatorLayout.LayoutParams params =
+                (CoordinatorLayout.LayoutParams) binding.rootLayout.getLayoutParams();
+            params.setBehavior(new AppBarLayout.ScrollingViewBehavior());
+            super.onBackPressed();
+        } else{
             // pop back
             hideSearchView(getCurrentDir());
             showSortListGroup(true);
@@ -1950,8 +1956,7 @@ public class FileDisplayActivity extends FileActivity
                 if (ResultCode.FOLDER_ALREADY_EXISTS == result.getCode()) {
                     DisplayUtils.showSnackMessage(this, R.string.folder_already_exists);
                 } else {
-                    DisplayUtils.showSnackMessage(this, ErrorMessageAdapter.getErrorCauseMessage(result, operation,
-                                                                                                 getResources()));
+                    DisplayUtils.showSnackMessage(this, ErrorMessageAdapter.getErrorCauseMessage(result, operation, getResources()));
                 }
             } catch (NotFoundException e) {
                 Log_OC.e(TAG, "Error while trying to show fail message ", e);
@@ -2181,13 +2186,13 @@ public class FileDisplayActivity extends FileActivity
             return; // not reachable under normal conditions
         }
         if (showPreview && file.isDown() && !file.isDownloading() || streamMedia) {
-            showSortListGroup(false);
-            CoordinatorLayout.LayoutParams params = (CoordinatorLayout.LayoutParams) findViewById(R.id.root_layout).getLayoutParams();
+            CoordinatorLayout.LayoutParams params =
+                (CoordinatorLayout.LayoutParams) binding.rootLayout.getLayoutParams();
             params.setBehavior(null);
-
             Fragment mediaFragment = PreviewMediaFragment.newInstance(file, user.get(), startPlaybackPosition, autoplay);
             setLeftFragment(mediaFragment);
-            updateActionBarTitleAndHomeButton(file);
+            showSortListGroup(false);
+            super.updateActionBarTitleAndHomeButton(file);
             setFile(file);
         } else {
             Intent previewIntent = new Intent();

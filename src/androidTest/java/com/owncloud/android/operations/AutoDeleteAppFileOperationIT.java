@@ -35,6 +35,7 @@ import com.owncloud.android.datamodel.UploadsStorageManager;
 import com.owncloud.android.db.OCUpload;
 import com.owncloud.android.files.services.FileUploader;
 import com.owncloud.android.lib.common.accounts.AccountUtils;
+import com.owncloud.android.lib.common.utils.Log_OC;
 import com.owncloud.android.utils.FileStorageUtils;
 
 import org.junit.After;
@@ -56,6 +57,7 @@ import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
 
 public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
+    private static final String TAG = AutoDeleteAppFileOperationIT.class.getSimpleName();
     private static final String TEST_ROOT = "/test";
     private UploadsStorageManager uploadsStorageManager;
     private CurrentAccountProvider currentAccountProvider = () -> null;
@@ -75,11 +77,12 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         try {
             deleteRootTestDirectory();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log_OC.d(TAG, e.getMessage());
         }
+        UploadsStorageManager uploadsStorageManager
+            = new UploadsStorageManager(userAccountManager, targetContext.getContentResolver());
+        uploadsStorageManager.removeAllUploads();
     }
-
-
 
     @Test
     public void addDirectoryTest(){
@@ -89,8 +92,14 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
 
-        autoDeleteOps.addDirectory(directory, offsetDays).save();
+        autoDeleteOps.addDirectory(directory, offsetDays);
         assertTrue(autoDeleteOps.isDirectoryAdded(directory));
+
+        autoDeleteOps.addDirectory("", offsetDays);
+        assertFalse(autoDeleteOps.isDirectoryAdded(""));
+
+        autoDeleteOps.addDirectory(null, offsetDays);
+        assertFalse(autoDeleteOps.isDirectoryAdded(null));
     }
 
     @Test
@@ -100,12 +109,12 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
 
-        autoDeleteOps.addDirectory(directory, 6).save();
+        assertTrue(autoDeleteOps.addDirectory(directory, 6));
         assertTrue(autoDeleteOps.isDirectoryAdded(directory));
-
-        autoDeleteOps.deleteDirectory(directory).save();
-        assertFalse(autoDeleteOps.isDirectoryAdded(directory));
-
+        assertTrue(autoDeleteOps.deleteDirectory(directory));
+        assertFalse(autoDeleteOps.deleteDirectory(null));
+        assertFalse(autoDeleteOps.deleteDirectory(""));
+        assertFalse(autoDeleteOps.deleteDirectory("/not/saved/"));
     }
 
     @Test
@@ -116,10 +125,11 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
 
-        autoDeleteOps.addDirectory(directory, offsetDays).save();
+        autoDeleteOps.addDirectory(directory, offsetDays);
         int actual = autoDeleteOps.getDirectoryOffset(directory);
-
         assertEquals(offsetDays,actual);
+
+        assertFalse(autoDeleteOps.addDirectory(directory, 0));
     }
 
     @Test
@@ -131,13 +141,16 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
 
-        autoDeleteOps.addDirectory(directory, offsetDays).save();
+        autoDeleteOps.addDirectory(directory, offsetDays);
         int actual = autoDeleteOps.getDirectoryOffset(directory);
         assertEquals(offsetDays,actual);
 
-        autoDeleteOps.addDirectory(directory, updatedOffsetDays).save();
+        autoDeleteOps.addDirectory(directory, updatedOffsetDays);
         actual = autoDeleteOps.getDirectoryOffset(directory);
         assertEquals(updatedOffsetDays,actual);
+
+
+
     }
 
     @Test
@@ -152,7 +165,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         //Add directory and days to keep files.
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
-        autoDeleteOps.addDirectory(path, daysToKeepFiles).save();
+        autoDeleteOps.addDirectory(path, daysToKeepFiles);
         assertTrue(autoDeleteOps.isDirectoryAdded(path));
         //Check that file exist in app directory.
         assertTrue(uploadedFile.exists());
@@ -169,7 +182,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
     @Test
     public void daysToKeepFileNotPastTest() throws Exception {
         String path = TEST_ROOT + "/file/upload2/";
-        String filename = "testfile.txt";
+        String filename = "testfile1.txt";
         int daysToKeepFiles = 7;
         int daysPast = 2;
         //Upload test file
@@ -178,7 +191,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         //Add directory and days to keep files.
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
-        autoDeleteOps.addDirectory(path, daysToKeepFiles).save();
+        autoDeleteOps.addDirectory(path, daysToKeepFiles);
         assertTrue(autoDeleteOps.isDirectoryAdded(path));
         //Check that file exist in app directory.
         assertTrue(uploadedFile.exists());
@@ -203,7 +216,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         //Add directory and days to keep files.
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
-        autoDeleteOps.addDirectory(path, daysToKeepFiles).save();
+        autoDeleteOps.addDirectory(path, daysToKeepFiles);
         assertTrue(autoDeleteOps.isDirectoryAdded(path));
         //Check that file exist in app directory.
         assertTrue(uploadedFile.exists());
@@ -219,7 +232,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
     @Test
     public void daysToKeepFilePastWithDirectoryRemovedTest() throws Exception {
         String path = TEST_ROOT + "/file/upload5/";
-        String filename = "testfile.txt";
+        String filename = "testfile3.txt";
         int daysToKeepFiles = 7;
         int daysPast = 18;
         //Upload test file
@@ -228,7 +241,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         //Add directory and days to keep files.
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
-        autoDeleteOps.addDirectory(path, daysToKeepFiles).save();
+        autoDeleteOps.addDirectory(path, daysToKeepFiles);
         assertTrue(autoDeleteOps.isDirectoryAdded(path));
         //Check that file exist in app directory.
         assertTrue(uploadedFile.exists());
@@ -245,7 +258,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
     @Test
     public void daysToKeepFilePastForOneFileTest() throws Exception {
         String path = TEST_ROOT + "/file/upload6/";
-        String filename1 = "testfile.txt";
+        String filename1 = "testfile5.txt";
         String filename2 = "testfile2.txt";
         int daysToKeepFiles = 7;
         int daysPast = 18;
@@ -259,7 +272,7 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         //Add directory and days to keep files.
         AutoDeleteAppFileOperation autoDeleteOps
             = new AutoDeleteAppFileOperation(userAccountManager, targetContext);
-        autoDeleteOps.addDirectory(path, daysToKeepFiles).save();
+        autoDeleteOps.addDirectory(path, daysToKeepFiles);
         assertTrue(autoDeleteOps.isDirectoryAdded(path));
         //Perform auto delete
         Calendar currentDate = Calendar.getInstance();

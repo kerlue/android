@@ -569,10 +569,10 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         String dir = mSyncedFolder.getRemotePath() + "/";
 
         if(which == DO_NOT_DELETE){
-            autoDeleteOps.deleteDirectory(dir).save();
+            autoDeleteOps.deleteDirectory(dir);
         }
         else{
-            autoDeleteOps.addDirectory(dir, getSelectionIndexToDays(which)).save();
+            autoDeleteOps.addDirectory(dir, getSelectionIndexToDays(which));
         }
     }
 

@@ -16,12 +16,14 @@
 package com.owncloud.android.operations;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.nextcloud.client.account.User;
 import com.nextcloud.client.account.UserAccountManager;
 import com.owncloud.android.datamodel.ArbitraryDataProvider;
 import com.owncloud.android.datamodel.UploadsStorageManager;
 import com.owncloud.android.db.OCUpload;
+import com.owncloud.android.lib.common.utils.Log_OC;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -34,7 +36,7 @@ import java.util.Calendar;
  * Unshare file/folder Save the data in Database
  */
 public class AutoDeleteAppFileOperation  {
-
+    private static final String TAG = AutoDeleteAppFileOperation.class.getSimpleName();
     private static final String AUTO_DELETE_DIR = "app_folder_auto_delete";
     private final ArbitraryDataProvider db;
     private final Context context;
@@ -42,6 +44,10 @@ public class AutoDeleteAppFileOperation  {
     private final User user;
     private JSONObject directoryJSON = new JSONObject();
     Calendar testDate = null;
+
+    /**
+     * Create an object for adding directories that files should be kept for a limited time.
+     */
 
     public AutoDeleteAppFileOperation(UserAccountManager accountManager, Context targetContext) {
         context = targetContext;
@@ -51,54 +57,67 @@ public class AutoDeleteAppFileOperation  {
         loadAutoDeleteDirectory();
     }
 
-    private void loadAutoDeleteDirectory() {
-        assert user != null;
-        String res = db.getValue(user, AUTO_DELETE_DIR);
+    /**
+     * Add or update directory in which files will be deleted after offsetDays hsa past.
+     * OffsetDays represents the number of days a file will be kept
+     */
+    public boolean addDirectory(String directory, int offsetDays) {
         try {
-            directoryJSON = new JSONObject(res);
+            if(offsetDays > 0 && directory != null  && !"".equals(directory)){
+                directoryJSON.put(directory,offsetDays);
+                return save();
+            }
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log_OC.d(TAG,e.getMessage());
         }
+        return false;
     }
 
-    public AutoDeleteAppFileOperation addDirectory(String directory, int offsetDays) {
-        try {
-           directoryJSON.put(directory,offsetDays);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        return this;
+    /**
+     * Remove directory from auto delete list. Files will be kept indefinitely
+     */
+    public Boolean deleteDirectory(String directory) {
+        return directoryJSON.remove(directory) != null && save();
     }
 
-    public AutoDeleteAppFileOperation deleteDirectory(String directory) {
-        directoryJSON.remove(directory);
-        return this;
-    }
-
+    /**
+     * Check if a directory is setup for auto delete.
+     */
     public boolean isDirectoryAdded(String directory) {
         return directoryJSON.has(directory);
     }
 
+    /**
+     * Get how long a file will be kept in days.
+     */
     public int getDirectoryOffset(String directory) {
         int offset = 0;
         try {
             offset = directoryJSON.getInt(directory);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log_OC.d(TAG,e.getMessage());
         }
         return offset;
     }
 
-    public void save() {
+    /**
+     * Persist changes to databse.
+     */
+    private boolean save() {
         if(directoryJSON != null){
             String jsonStr = directoryJSON.toString();
             jsonStr = jsonStr.replaceAll("\\\\", "");
             db.storeOrUpdateKeyValue(user.getAccountName(),
                                      AUTO_DELETE_DIR,
                                      jsonStr);
+            return true;
         }
+        return false;
     }
 
+    /**
+     * Delete files if daysoffset past
+     */
     public int deleteFilesIfDatePast() {
         int deletedCount = 0;
         UploadsStorageManager uploadsStorageManager
@@ -107,28 +126,42 @@ public class AutoDeleteAppFileOperation  {
         OCUpload[] uploads = uploadsStorageManager.getAllStoredUploads();
          for(OCUpload upload: uploads){
              String dir = getParentDirectory(upload);
-             if(dir != null && directoryJSON.has(dir)){
-                if(hasDaysToFilePast(upload, dir)){
-                    File file = new File(upload.getLocalPath());
-                    if(file.exists() && file.delete()){
-                        deletedCount++;
-                    }
-                }
+             boolean hasKey = dir != null && directoryJSON.has(dir);
+             if(hasKey && hasDaysToFilePast(upload, dir)){
+                 File file = new File(upload.getLocalPath());
+                 if(file.exists() && file.delete()){
+                     deletedCount++;
+                 }
              }
          }
          return deletedCount;
     }
 
+    /**
+     * Used ONLY for testing. Simulate today's date.
+     */
+    public void setTodayDate(Calendar date) {
+        testDate = date;
+    }
+
+    private void loadAutoDeleteDirectory() {
+        assert user != null;
+        String res = db.getValue(user, AUTO_DELETE_DIR);
+        try {
+            directoryJSON = new JSONObject(res);
+        } catch (JSONException e) {
+            Log_OC.d(TAG,e.getMessage());
+        }
+    }
+
     private boolean hasDaysToFilePast(OCUpload upload, String dir) {
         long uploadTimestamp = upload.getUploadEndTimestamp();
-        String pathLocal = upload.getLocalPath();
-
         int offsetDays = 0;
         boolean res = false;
         try {
              offsetDays = directoryJSON.getInt(dir);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log_OC.d(TAG,e.getMessage());
         }
 
         if(uploadTimestamp > 0 && offsetDays > 0){
@@ -145,10 +178,6 @@ public class AutoDeleteAppFileOperation  {
         return testDate != null ? testDate : Calendar.getInstance();
     }
 
-    public Calendar setTodayDate(Calendar date) {
-        return testDate = date;
-    }
-
     private String getParentDirectory(OCUpload upload) {
         String localPath = upload.getLocalPath();
         String parentName = null;
@@ -158,7 +187,7 @@ public class AutoDeleteAppFileOperation  {
                 String path = localPath.split(accountName)[1];
                 String parentDir = new File(path).getParent();
                 if(parentDir != null){
-                    parentName = parentDir.equals("/") ? parentDir : parentDir + "/";
+                    parentName = "/".equals(parentDir) ? parentDir : parentDir + "/";
                 }
             }
         }
@@ -166,8 +195,8 @@ public class AutoDeleteAppFileOperation  {
     }
 
     private String sanitizeAccount(String accountName) {
-        String username = accountName.substring(0,accountName.lastIndexOf("@"));
-        String url = accountName.substring(accountName.lastIndexOf("@") + 1);
+        String username = accountName.substring(0,accountName.lastIndexOf('@'));
+        String url = accountName.substring(accountName.lastIndexOf('@') + 1);
         return username + "@" + URLEncoder.encode(url);
     }
 
