@@ -56,6 +56,7 @@ import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
 
+//Issue: https://github.com/nextcloud/android/issues/9037
 public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
     private static final String TAG = AutoDeleteAppFileOperationIT.class.getSimpleName();
     private static final String TEST_ROOT = "/test";
@@ -148,8 +149,6 @@ public class AutoDeleteAppFileOperationIT extends AbstractOnServerIT {
         autoDeleteOps.addDirectory(directory, updatedOffsetDays);
         actual = autoDeleteOps.getDirectoryOffset(directory);
         assertEquals(updatedOffsetDays,actual);
-
-
 
     }
 

@@ -783,6 +783,7 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
 
     }
 
+    // issue: https://github.com/nextcloud/android/issues/9004
     private static void setNavBarBackgroundColor(Activity activity) {
         if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
 

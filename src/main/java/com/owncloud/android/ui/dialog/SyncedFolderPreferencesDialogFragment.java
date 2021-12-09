@@ -557,6 +557,7 @@ public class SyncedFolderPreferencesDialogFragment extends DialogFragment {
         behaviourDialog.show();
     }
 
+    // issue: https://github.com/nextcloud/android/issues/9037
     private void filesRetentionChange(int which) {
         String path = mSyncedFolder.getLocalPath();
         SharedPreferences pref = new PreferencesModule().sharedPreferences(getContext());

@@ -35,6 +35,7 @@ import java.util.Calendar;
 /**
  * Unshare file/folder Save the data in Database
  */
+//Issue: https://github.com/nextcloud/android/issues/9037
 public class AutoDeleteAppFileOperation  {
     private static final String TAG = AutoDeleteAppFileOperation.class.getSimpleName();
     private static final String AUTO_DELETE_DIR = "app_folder_auto_delete";

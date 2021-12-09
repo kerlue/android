@@ -1124,6 +1124,7 @@ public class FileDisplayActivity extends FileActivity
         } else if (leftFragment instanceof PreviewTextStringFragment) {
             createMinFragments(null);
         }else if(leftFragment instanceof PreviewMediaFragment){
+            //Issue https://github.com/nextcloud/android/issues/9060
             CoordinatorLayout.LayoutParams params =
                 (CoordinatorLayout.LayoutParams) binding.rootLayout.getLayoutParams();
             params.setBehavior(new AppBarLayout.ScrollingViewBehavior());
@@ -2184,7 +2185,7 @@ public class FileDisplayActivity extends FileActivity
         Optional<User> user = getUser();
         if (!user.isPresent()) {
             return; // not reachable under normal conditions
-        }
+        } //Issue: https://github.com/nextcloud/android/issues/9060
         if (showPreview && file.isDown() && !file.isDownloading() || streamMedia) {
             CoordinatorLayout.LayoutParams params =
                 (CoordinatorLayout.LayoutParams) binding.rootLayout.getLayoutParams();
