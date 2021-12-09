@@ -32,6 +32,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -101,6 +102,7 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.content.ContextCompat;
 import androidx.core.util.Pair;
 import androidx.multidex.MultiDexApplication;
 import dagger.android.AndroidInjector;
@@ -246,6 +248,7 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
     @Override
     public void onCreate() {
         setAppTheme(preferences.getDarkThemeMode());
+
         super.onCreate();
 
         insertConscrypt();
@@ -309,6 +312,7 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
             public void onActivityCreated(@NonNull Activity activity, Bundle savedInstanceState) {
                 Log_OC.d(activity.getClass().getSimpleName(), "onCreate(Bundle) starting");
                 onboarding.launchActivityIfNeeded(activity);
+                setNavBarBackgroundColor(activity);
             }
 
             @Override
@@ -775,6 +779,22 @@ public class MainApp extends MultiDexApplication implements HasAndroidInjector {
             case SYSTEM:
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
                 break;
+        }
+
+    }
+
+    private static void setNavBarBackgroundColor(Activity activity) {
+        if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+
+            Context context = activity.getApplicationContext();
+
+            int nightModeFlags = context.getResources().getConfiguration().uiMode &
+                Configuration.UI_MODE_NIGHT_MASK;
+
+            if(nightModeFlags == Configuration.UI_MODE_NIGHT_NO){
+                int backgroundColor = ContextCompat.getColor(context, R.color.black);
+                activity.getWindow().setNavigationBarColor(backgroundColor);
+            }
         }
     }
 }
